@@ -22,52 +22,62 @@ public class Poliedro {
     
     public final ArrayList<Ponto> vertices;
     public final ArrayList<Aresta> arestas;
+    public final ArrayList<Face> faces;
     
     public Poliedro(int numLados, double tamLado, double altura) {
         
         assert(numLados >= 3 && numLados <= 20) : "Tentando criar Poliedro de " + numLados + " lados";
         assert(altura > 0) : "Tentando criar Poliedro com altura " + altura;
         
+        final int NUM_FACES_ALTURA = 3;
+        
         vertices = new ArrayList<>();
         arestas = new ArrayList<>();
+        faces = new ArrayList<>();
         
         double complementoAngulo = PI - anguloInterno(numLados);
         
-        Ponto orig_p = null, orig_q = null;
-        Ponto p0 = null, q0 = null, p1 = null, q1 = null;
+        Ponto orig[] = new Ponto[NUM_FACES_ALTURA];
+        Ponto p0[] = new Ponto[NUM_FACES_ALTURA];
+        Ponto p1[] = new Ponto[NUM_FACES_ALTURA];
         
         for(int i = 0; i < numLados; i++) {
-            p1 = new Ponto(tamLado, 0, 0);
-            p1.set(cos(i * complementoAngulo) * p1.x, sin(i * complementoAngulo) * p1.x, 0);
-            vertices.add(p1);
+            p1[0] = new Ponto(tamLado, 0, 0);
+            p1[0].set(cos(i * complementoAngulo) * p1[0].x, sin(i * complementoAngulo) * p1[0].x, 0);
+            vertices.add(p1[0]);
             
-            q1 = new Ponto(p1);
-            q1.z += altura;
-            vertices.add(q1);
+            for(int j = 1; j < NUM_FACES_ALTURA; j++) {
+                p1[j] = new Ponto(p1[j-1]);
+                p1[j].z += altura / NUM_FACES_ALTURA;
+                vertices.add(p1[j]);
+            }
+            
+            for(int k = 1; k < NUM_FACES_ALTURA; k++) {
+                arestas.add(new Aresta(p1[k-1], p1[k]));
+            }
             
             if(i == 0) {
-                orig_p = p1;
-                orig_q = q1;
+                System.arraycopy(p1, 0, orig, 0, NUM_FACES_ALTURA);
             }
             else {
-                arestas.add(new Aresta(p0, p1));
-                arestas.add(new Aresta(q0, q1));
-                arestas.add(new Aresta(p1, q1));
+                for(int k = 0; k < NUM_FACES_ALTURA; k++) {
+                    arestas.add(new Aresta(p0[k], p1[k]));
+                }
             }
             
-            p0 = p1;
-            q0 = q1;
+            System.arraycopy(p1, 0, p0, 0, NUM_FACES_ALTURA);
         }
         
-        arestas.add(new Aresta(p1, orig_p));
-        arestas.add(new Aresta(q1, orig_q));
-        arestas.add(new Aresta(orig_q, orig_p));
+        for(int k = 0; k < NUM_FACES_ALTURA; k++) {
+            arestas.add(new Aresta(p1[k], orig[k]));
+        }
     }
     
     public Poliedro(String stringSave) {
         
         vertices = new ArrayList<>();
         arestas = new ArrayList<>();
+        faces = new ArrayList<>();
         
         int c = 0;
         
@@ -85,6 +95,19 @@ public class Poliedro {
             int ind1 = Integer.parseInt(s[c++]);
             int ind2 = Integer.parseInt(s[c++]);
             arestas.add(new Aresta(vertices.get(ind1), vertices.get(ind2)));
+        }
+        
+        int numFaces = Integer.parseInt(s[c++]);
+        
+        for(int i = 0; i < numFaces; i++) {
+            int numVert = Integer.parseInt(s[c++]);
+            Face f = new Face();
+            
+            for(int j = 0; j < numVert; j++) {
+                int ind = Integer.parseInt(s[c++]);
+                f.vertices.add(vertices.get(ind));
+            }
+            faces.add(f);
         }
     }
     
@@ -134,7 +157,6 @@ public class Poliedro {
         }
         
         return new Ponto((xmin + xmax) / 2, (ymin + ymax) / 2, (zmin + zmax) / 2);
-        
     }
     
     public String stringSalvar() {
@@ -154,6 +176,14 @@ public class Poliedro {
             ret += pontos.get(a.v1) + " " + pontos.get(a.v2) + " ";
         }
         
+        ret += faces.size() + " ";
+        for(Face f : faces) {
+            ret += f.vertices.size() + " ";
+            for(Ponto p : f.vertices) {
+                ret += pontos.get(p) + " ";
+            }
+        }
+        
         return ret;
     }
     
@@ -168,6 +198,24 @@ public class Poliedro {
         @Override
         public String toString() {
             return "aresta( " + v1 + ", " + v2 + " )";
+        }
+    }
+    
+    public class Face {
+        public ArrayList<Ponto> vertices;
+        
+        public Face() {
+            vertices = new ArrayList<>();
+        }
+        
+        @Override
+        public String toString() {
+            String ret = "face( ";
+            for(Ponto p : vertices) {
+                ret += p;
+            }
+            ret += " )";
+            return ret;
         }
     }
     
