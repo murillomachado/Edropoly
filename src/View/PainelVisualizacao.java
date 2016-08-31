@@ -82,9 +82,12 @@ public class PainelVisualizacao extends JPanel {
     
     void drawPoliLines(Graphics g, Poliedro p) {
         
+        int altura = getHeight();
+        int largura = getWidth();
+        
         for(int i = 0; i < p.numArestas(); i++) {
-            drawLine(g, p.arestas.get(i).v1.getCoordenada(C1), p.arestas.get(i).v1.getCoordenada(C2),
-                        p.arestas.get(i).v2.getCoordenada(C1), p.arestas.get(i).v2.getCoordenada(C2));
+            drawLine(g, p.arestas.get(i).v1.getCoordenada(C1) + altura/2, p.arestas.get(i).v1.getCoordenada(C2) + largura/2,
+                        p.arestas.get(i).v2.getCoordenada(C1) + altura/2, p.arestas.get(i).v2.getCoordenada(C2) + largura/2);
         }
     }
     
@@ -92,9 +95,21 @@ public class PainelVisualizacao extends JPanel {
     public void paintComponent(Graphics g) {
         
         super.paintComponents(g);
+        
+        g.setColor(Color.LIGHT_GRAY);
+        drawLine(g, 0, getHeight()/2, getWidth(), getHeight()/2);
+        drawLine(g, getWidth()/2, 0, getWidth()/2, getHeight());
+        
         g.setColor(Color.BLACK);
-        for(Poliedro p : c.poliedros) {
-            drawPoliLines(g, p);
+        for(int i = 0; i < c.poliedros.size(); i++) {
+            if(i != c.selecionado) {
+                drawPoliLines(g, c.poliedros.get(i));
+            }
+        }
+        
+        if(c.selecionado != -1) {
+            g.setColor(Color.RED);
+            drawPoliLines(g, c.poliedros.get(c.selecionado));
         }
     }
     

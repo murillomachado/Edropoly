@@ -25,12 +25,7 @@ public class Edropoly {
      */
     public static void main(String[] args) {
         
-        Cena c = new Cena();
-        c.poliedros.add(new Poliedro(6, 50, 50));
-        
-        c.poliedros.get(0).mult(new MatrizTransf(MatrizTransf.TipoTransf.TRANSLACAO, 150, 150, 150));
-        
-        JFrame frame = new PainelPrincipal(c);
+        JFrame frame = new PainelPrincipal();
         
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.setVisible(true);

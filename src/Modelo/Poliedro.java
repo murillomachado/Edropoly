@@ -10,6 +10,8 @@ import static java.lang.Math.cos;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.Math.sin;
+import static Modelo.MatrizTransf.TipoTransf.*;
+import static Modelo.MatrizTransf.TipoRot.*;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
@@ -20,8 +22,15 @@ import java.util.Map;
  */
 public class Poliedro {
     
+    public enum TipoModif {
+        BEND, BEVEL, TWIST;
+    }
+    
     public final ArrayList<Ponto> vertices;
     public final ArrayList<Aresta> arestas;
+    public final ArrayList<Face> faces;
+    
+    private final int NUM_FACES_ALTURA = 10;
     
     public Poliedro(int numLados, double tamLado, double altura) {
         
@@ -30,44 +39,57 @@ public class Poliedro {
         
         vertices = new ArrayList<>();
         arestas = new ArrayList<>();
+        faces = new ArrayList<>();
+        
+        for(int i = 0; i < NUM_FACES_ALTURA; i++) {
+            faces.add(new Face());
+        }
         
         double complementoAngulo = PI - anguloInterno(numLados);
         
-        Ponto orig_p = null, orig_q = null;
-        Ponto p0 = null, q0 = null, p1 = null, q1 = null;
+        Ponto orig[] = new Ponto[NUM_FACES_ALTURA];
+        Ponto p0[] = new Ponto[NUM_FACES_ALTURA];
+        Ponto p1[] = new Ponto[NUM_FACES_ALTURA];
         
         for(int i = 0; i < numLados; i++) {
-            p1 = new Ponto(tamLado, 0, 0);
-            p1.set(cos(i * complementoAngulo) * p1.x, sin(i * complementoAngulo) * p1.x, 0);
-            vertices.add(p1);
+            p1[0] = new Ponto(tamLado, 0, 0);
+            p1[0].set(cos(i * complementoAngulo) * p1[0].x, sin(i * complementoAngulo) * p1[0].x, 0);
+            vertices.add(p1[0]);
+            faces.get(0).vert.add(p1[0]);
             
-            q1 = new Ponto(p1);
-            q1.z += altura;
-            vertices.add(q1);
+            for(int j = 1; j < NUM_FACES_ALTURA; j++) {
+                p1[j] = new Ponto(p1[j-1]);
+                p1[j].z += altura / NUM_FACES_ALTURA;
+                vertices.add(p1[j]);
+                faces.get(j).vert.add(p1[j]);
+            }
+            
+            for(int k = 1; k < NUM_FACES_ALTURA; k++) {
+                arestas.add(new Aresta(p1[k-1], p1[k]));
+            }
             
             if(i == 0) {
-                orig_p = p1;
-                orig_q = q1;
+                System.arraycopy(p1, 0, orig, 0, NUM_FACES_ALTURA);
             }
             else {
-                arestas.add(new Aresta(p0, p1));
-                arestas.add(new Aresta(q0, q1));
-                arestas.add(new Aresta(p1, q1));
+                for(int k = 0; k < NUM_FACES_ALTURA; k++) {
+                    arestas.add(new Aresta(p0[k], p1[k]));
+                }
             }
             
-            p0 = p1;
-            q0 = q1;
+            System.arraycopy(p1, 0, p0, 0, NUM_FACES_ALTURA);
         }
         
-        arestas.add(new Aresta(p1, orig_p));
-        arestas.add(new Aresta(q1, orig_q));
-        arestas.add(new Aresta(orig_q, orig_p));
+        for(int k = 0; k < NUM_FACES_ALTURA; k++) {
+            arestas.add(new Aresta(p1[k], orig[k]));
+        }
     }
     
     public Poliedro(String stringSave) {
         
         vertices = new ArrayList<>();
         arestas = new ArrayList<>();
+        faces = new ArrayList<>();
         
         int c = 0;
         
@@ -86,6 +108,19 @@ public class Poliedro {
             int ind2 = Integer.parseInt(s[c++]);
             arestas.add(new Aresta(vertices.get(ind1), vertices.get(ind2)));
         }
+        
+        int numFaces = Integer.parseInt(s[c++]);
+        
+        for(int i = 0; i < numFaces; i++) {
+            int numVert = Integer.parseInt(s[c++]);
+            Face f = new Face();
+            
+            for(int j = 0; j < numVert; j++) {
+                int ind = Integer.parseInt(s[c++]);
+                f.vert.add(vertices.get(ind));
+            }
+            faces.add(f);
+        }
     }
     
     private double anguloInterno(int numLados) {
@@ -97,16 +132,27 @@ public class Poliedro {
     }
     
     public void mult(MatrizTransf m) {
+        for(Face f : faces) {
+            f.mult(m);
+        }
+    }
+    
+    public void modificar(TipoModif t, double val) {
         
-        for(Ponto p : vertices) {
-            
-            double novo_x = m.m[0][0] * p.x + m.m[0][1] * p.y + m.m[0][2] * p.z + m.m[0][3];
-            double novo_y = m.m[1][0] * p.x + m.m[1][1] * p.y + m.m[1][2] * p.z + m.m[1][3];
-            double novo_z = m.m[2][0] * p.x + m.m[2][1] * p.y + m.m[2][2] * p.z + m.m[2][3];
-            
-            p.set(novo_x, novo_y, novo_z);
+        MatrizTransf m = new MatrizTransf();
+        m.setIdentidade();
+        MatrizTransf it = null;
+        
+        if(null != t) switch (t) {
+            case BEND:  it = new MatrizTransf(ROTACAO, val / NUM_FACES_ALTURA, Y); break;
+            case TWIST: it = new MatrizTransf(ROTACAO, val, Z); break;
+            case BEVEL: it = new MatrizTransf(ESCALA, val / NUM_FACES_ALTURA, val / NUM_FACES_ALTURA, 1); break;
         }
         
+        for(Face f : faces) {
+            f.mult(m);
+            m = m.mult(it);
+        }
     }
     
     public Ponto getCentroGeometrico() {
@@ -134,7 +180,6 @@ public class Poliedro {
         }
         
         return new Ponto((xmin + xmax) / 2, (ymin + ymax) / 2, (zmin + zmax) / 2);
-        
     }
     
     public String stringSalvar() {
@@ -154,6 +199,14 @@ public class Poliedro {
             ret += pontos.get(a.v1) + " " + pontos.get(a.v2) + " ";
         }
         
+        ret += faces.size() + " ";
+        for(Face f : faces) {
+            ret += f.vert.size() + " ";
+            for(Ponto p : f.vert) {
+                ret += pontos.get(p) + " ";
+            }
+        }
+        
         return ret;
     }
     
@@ -168,6 +221,36 @@ public class Poliedro {
         @Override
         public String toString() {
             return "aresta( " + v1 + ", " + v2 + " )";
+        }
+    }
+    
+    public class Face {
+        public ArrayList<Ponto> vert;
+        
+        public Face() {
+            vert = new ArrayList<>();
+        }
+        
+        public void mult(MatrizTransf m) {
+        
+            for(Ponto p : vert) {
+
+                double novo_x = m.m[0][0] * p.x + m.m[0][1] * p.y + m.m[0][2] * p.z + m.m[0][3];
+                double novo_y = m.m[1][0] * p.x + m.m[1][1] * p.y + m.m[1][2] * p.z + m.m[1][3];
+                double novo_z = m.m[2][0] * p.x + m.m[2][1] * p.y + m.m[2][2] * p.z + m.m[2][3];
+
+                p.set(novo_x, novo_y, novo_z);
+            }
+        }
+        
+        @Override
+        public String toString() {
+            String ret = "face( ";
+            for(Ponto p : vert) {
+                ret += p;
+            }
+            ret += " )";
+            return ret;
         }
     }
     
