@@ -17,6 +17,10 @@ public class Vetor {
         p = new Ponto(x, y, z);
     }
     
+    public Vetor(Ponto p) {
+        this.p = p;
+    }
+    
     public Vetor somar(Vetor a) {
         return new Vetor(p.x + a.p.x, p.y + a.p.y, p.z + a.p.z);
     }
