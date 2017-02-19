@@ -86,8 +86,8 @@ public class PainelVisualizacao extends JPanel {
         int largura = getWidth();
         
         for(int i = 0; i < p.numArestas(); i++) {
-            drawLine(g, p.arestas.get(i).v1.getCoordenada(C1) + altura/2, p.arestas.get(i).v1.getCoordenada(C2) + largura/2,
-                        p.arestas.get(i).v2.getCoordenada(C1) + altura/2, p.arestas.get(i).v2.getCoordenada(C2) + largura/2);
+            drawLine(g, p.getVertice(i, 0).getCoordenada(C1) + altura/2, p.getVertice(i, 0).getCoordenada(C2) + largura/2,
+                        p.getVertice(i, 1).getCoordenada(C1) + altura/2, p.getVertice(i, 1).getCoordenada(C2) + largura/2);
         }
     }
     

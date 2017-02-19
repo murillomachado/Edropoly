@@ -802,11 +802,12 @@ public class PainelPrincipal extends javax.swing.JFrame {
         double escalaY = ((Float) spEscalaY.getValue());
         double escalaZ = ((Float) spEscalaZ.getValue());
         
+        p.transladar(translX, translY, translZ);
+        
         p.mult(new MatrizTransf(ROTACAO, toRad(rotZ), TipoRot.Z).mult(
                new MatrizTransf(ROTACAO, toRad(rotY), TipoRot.Y).mult(
                new MatrizTransf(ROTACAO, toRad(rotX), TipoRot.X).mult(
-               new MatrizTransf(ESCALA, escalaX, escalaY, escalaZ).mult(
-               new MatrizTransf(TRANSLACAO, translX, translY, translZ))))));
+               new MatrizTransf(ESCALA, escalaX, escalaY, escalaZ)))));
         
         repaintAll();
         adicionarUndo();
