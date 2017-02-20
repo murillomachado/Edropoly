@@ -5,6 +5,7 @@
  */
 package Modelo;
 
+import java.awt.Color;
 import java.io.BufferedReader;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
@@ -24,9 +25,18 @@ public class Cena {
     public final ArrayList<Poliedro> poliedros;
     public int selecionado;
     
+    public double Ia, Il;
+    public Ponto origemLuz, observador;
+    public Color corFundo;
+    
     public Cena() {
         poliedros = new ArrayList<>();
         selecionado = -1;
+        
+        Ia = Il = 1;
+        origemLuz = new Ponto(0, 0, 100);
+        observador = new Ponto(0, 0, 50);
+        corFundo = Color.LIGHT_GRAY;
     }
     
     public Cena(BufferedReader in) {

@@ -11,7 +11,7 @@ package Modelo;
  */
 public class Vetor {
     
-    Ponto p;
+    public Ponto p;
 
     public Vetor(double x, double y, double z) {
         p = new Ponto(x, y, z);
@@ -27,6 +27,14 @@ public class Vetor {
     
     public Vetor subtrair(Vetor a) {
         return this.somar(a.negativo());
+    }
+    
+    public Vetor subtrair(Ponto p) {
+        return subtrair(new Vetor(p));
+    }
+    
+    public Vetor mult(double e) {
+        return new Vetor(e * p.x, e * p.y, e * p.z);
     }
     
     public Vetor negativo() {

@@ -7,14 +7,17 @@ package Modelo;
 
 import static java.lang.Math.PI;
 import static java.lang.Math.cos;
-import static java.lang.Math.max;
-import static java.lang.Math.min;
 import static java.lang.Math.sin;
 import static Modelo.MatrizTransf.TipoTransf.*;
 import static Modelo.MatrizTransf.TipoRot.*;
+import java.awt.Color;
+import static java.lang.Math.max;
+import static java.lang.Math.min;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Random;
 
 /**
  *
@@ -26,10 +29,10 @@ public class Poliedro {
         BEND, BEVEL, TWIST;
     }
     
-    public double x, y, z;
+    public Ponto centroide;
     private final ArrayList<Ponto> vertices;
     private final ArrayList<Aresta> arestas;
-    public final ArrayList<Face> faces;
+    private final ArrayList<Face> faces;
     private final ArrayList<Face> camadas;
     
     private final int NUM_FACES_ALTURA = 10;
@@ -39,7 +42,7 @@ public class Poliedro {
         assert(numLados >= 3 && numLados <= 20) : "Tentando criar Poliedro de " + numLados + " lados";
         assert(altura > 0) : "Tentando criar Poliedro com altura " + altura;
         
-        x = y = z = 0;
+        centroide = new Ponto(0, 0, 0);
         vertices = new ArrayList<>();
         arestas = new ArrayList<>();
         faces = new ArrayList<>();
@@ -89,7 +92,10 @@ public class Poliedro {
         }
         
         // garantir que faces estão ordenadas em sentido anti-horário
-        faces.add(camadas.get(0));
+        faces.add(new Face());
+        for(int i = camadas.get(0).vert.size()-1; i >= 0; i--) {
+            faces.get(0).vert.add(camadas.get(0).vert.get(i));
+        }
         faces.add(camadas.get(NUM_FACES_ALTURA-1));
         
         for(int i = 1; i < NUM_FACES_ALTURA; i++) {
@@ -118,10 +124,8 @@ public class Poliedro {
         
         String[] s = stringSave.split(" ");
         
-        x = Double.parseDouble(s[c++]);
-        y = Double.parseDouble(s[c++]);
-        z = Double.parseDouble(s[c++]);
-        
+        centroide = new Ponto(s[c++]);
+
         int numVertices = Integer.parseInt(s[c++]);
         
         for(int i = 0; i < numVertices; i++) {
@@ -167,7 +171,13 @@ public class Poliedro {
         return (numLados - 2) * PI / numLados;
     }
     
-    public Ponto getVertice(int ind_aresta, int ponto) {
+    private Ponto coordenadasPonto(Ponto p) {
+        return new Ponto(p.x + centroide.x,
+                         p.y + centroide.y,
+                         p.z + centroide.z);
+    }
+    
+    public Ponto getVerticeAresta(int ind_aresta, int ponto) {
         
         Ponto r;
         
@@ -177,11 +187,25 @@ public class Poliedro {
             r = arestas.get(ind_aresta).v2;
         }
         
-        return new Ponto(r.x + x, r.y + y, r.z + z);
+        return coordenadasPonto(r);
+    }
+    
+    public Face getFace(int ind) {
+        Face f = new Face();
+        
+        for(Ponto p : faces.get(ind).vert) {
+            f.vert.add(coordenadasPonto(p));
+        }
+        
+        return f;
     }
     
     public int numArestas() {
         return arestas.size();
+    }
+    
+    public int numFaces() {
+        return faces.size();
     }
     
     public void mult(MatrizTransf m) {
@@ -191,9 +215,9 @@ public class Poliedro {
     }
     
     public void transladar(double x, double y, double z) {
-        this.x += x;
-        this.y += y;
-        this.z += z;
+        centroide.x += x;
+        centroide.y += y;
+        centroide.z += z;
     }
     
     public void modificar(TipoModif t, double val) {
@@ -214,40 +238,11 @@ public class Poliedro {
         }
     }
     
-    public Ponto getCentroGeometrico() {
-        
-        // dá pra substituir deixando os pontos extremos pré-calculados
-        
-        double xmin = vertices.get(0).x;
-        double xmax = xmin;
-        double ymin = vertices.get(0).y;
-        double ymax = ymin;
-        double zmin = vertices.get(0).z;
-        double zmax = zmin;
-        
-        for(Ponto p : vertices) {
-            
-            xmin = min(xmin, p.x);
-            xmax = max(xmax, p.x);
-            
-            ymin = min(ymin, p.y);
-            ymax = max(ymax, p.y);
-            
-            zmin = min(zmin, p.z);
-            zmax = max(zmax, p.z);
-            
-        }
-        
-        return new Ponto((xmin + xmax) / 2, (ymin + ymax) / 2, (zmin + zmax) / 2);
-    }
-    
     public String stringSalvar() {
         
         String ret = "";
         
-        ret += x + " ";
-        ret += y + " ";
-        ret += z + " ";
+        ret += centroide.stringSalvar() + " ";
         
         Map<Ponto, Integer> pontos = new HashMap<>();
         
@@ -312,6 +307,33 @@ public class Poliedro {
 
                 p.set(novo_x, novo_y, novo_z);
             }
+        }
+        
+        public Vetor normal() {
+            // dá pra substituir deixando pré-calculado
+            Vetor A = new Vetor(vert.get(0)).subtrair(new Vetor(vert.get(1)));
+            Vetor B = new Vetor(vert.get(2)).subtrair(new Vetor(vert.get(1)));
+            return B.cross(A);
+        }
+        
+        public Ponto getCentroGeometrico() {
+            // dá pra substituir deixando pré-calculado
+        
+            double xmin = vert.get(0).x;
+            double xmax = xmin;
+            double ymin = vert.get(0).y;
+            double ymax = ymin;
+
+            for(Ponto p : vert) {
+                xmin = min(xmin, p.x);
+                xmax = max(xmax, p.x);
+
+                ymin = min(ymin, p.y);
+                ymax = max(ymax, p.y);
+            }
+        
+            // -1 na coordenada z pois esse é o CG considerando pontos em 2D
+            return new Ponto((xmin + xmax) / 2, (ymin + ymax) / 2, -1);
         }
         
         @Override
