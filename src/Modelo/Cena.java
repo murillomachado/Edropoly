@@ -45,6 +45,16 @@ public class Cena {
         selecionado = -1;
         
         try {
+        
+            String[] s = in.readLine().split(" ");
+            int c = 0;
+            
+            Ia = Double.parseDouble(s[c++]);
+            Il = Double.parseDouble(s[c++]);
+            origemLuz = new Ponto(s[c++]);
+            observador = new Ponto(s[c++]);
+            corFundo = lerStringSalvar(s[c++]);
+            
             int numPoliedros = Integer.parseInt(in.readLine());
             
             for(int i = 0; i < numPoliedros; i++ ){
@@ -61,6 +71,12 @@ public class Cena {
         
         String ret = "";
         
+        ret += Ia + " ";
+        ret += Il + " ";
+        ret += origemLuz.stringSalvar() + " ";
+        ret += observador.stringSalvar() + " ";
+        ret += stringSalvar(corFundo) + "\n";
+        
         ret += poliedros.size() + "\n";
         
         for(Poliedro p : poliedros) {
@@ -68,6 +84,14 @@ public class Cena {
         }
         
         return ret;
+    }
+    
+    String stringSalvar(Color c) {
+        return "" + c.getRGB();
+    }
+    
+    final Color lerStringSalvar(String s) {
+        return new Color(Integer.parseInt(s), true);
     }
     
     public Poliedro getSelecionado() {

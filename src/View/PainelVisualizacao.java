@@ -133,17 +133,58 @@ public class PainelVisualizacao extends JPanel {
        }
     }
     
+    Color calcularCor(Poliedro poli, Ponto p, Vetor N, Vetor L, double NdotL, Vetor R, Vetor S) {
+        
+        double costeta = NdotL;
+        double cosalfa = R.dot(S);
+        
+        double Ka = 1, Kd = 1, Ks = 1;
+        int n_exp = 1;
+        double fatt = min(1, 1 / L.tamanho());
+        
+        double ambiente = Ka;
+        double difusa = (costeta > 0 ? Kd * costeta : 0);
+        double especular = (costeta > 0 && cosalfa > 0 ? Ks * Math.pow(cosalfa, n_exp) : 0);
+        
+        double red   = c.Ia * ambiente + fatt * c.Il * (difusa + especular);
+        double green = c.Ia * ambiente + fatt * c.Il * (difusa + especular);
+        double blue  = c.Ia * ambiente + fatt * c.Il * (difusa + especular);
+        
+        final float MAX_INTENSIDADE = 5.0f;
+        
+        float r = (float)red / MAX_INTENSIDADE;
+        float g = (float)green / MAX_INTENSIDADE;
+        float b = (float)blue / MAX_INTENSIDADE;
+        
+        return new Color(r, 0, 0);
+    }
+    
+    Color calcularCor(Poliedro poli, Ponto p, Vetor N) {
+        
+        Vetor L = new Vetor(c.origemLuz).subtrair(p);
+        N.normalizar();
+        L.normalizar();
+        double costeta = L.dot(N);
+        
+        Vetor R = N.mult(2 * costeta).subtrair(L);
+        Vetor S = new Vetor(c.observador).subtrair(p);
+        R.normalizar();
+        S.normalizar();
+        
+        return calcularCor(poli, p, N, L, costeta, R, S);
+    }
+    
     void zBuffer(Graphics g) {
         
         if(zBuffer == null) {
-            zBuffer = new double[getHeight()][getWidth()];
+            zBuffer = new double[2 * getHeight()][2 * getWidth()];
         }
         if(cores == null) {
-            cores = new Color[getHeight()][getWidth()];
+            cores = new Color[2 * getHeight()][2 * getWidth()];
         }
         
-        for(int i = 0; i < getHeight(); i++) {
-            for(int j = 0; j < getWidth(); j++) {
+        for(int i = 0; i < 2 * getHeight(); i++) {
+            for(int j = 0; j < 2 * getWidth(); j++) {
                 zBuffer[i][j] = Double.MAX_VALUE;
                 cores[i][j] = c.corFundo;
             }
@@ -157,43 +198,30 @@ public class PainelVisualizacao extends JPanel {
                 Vetor N = f.normal();
                 Ponto p0 = f.vert.get(0);
                 double pa = N.p.x, pb = N.p.y, pc = N.p.z, pd = - (pa * p0.x + pb * p0.y + pc * p0.z);
-                
                 if(pc < 1e-10) continue;
                 
                 cg.z = (-pd - pa * cg.x - pb * cg.y) / pc;
                 
-                Vetor L = new Vetor(c.origemLuz).subtrair(cg);
-                L.normalizar();
-                N.normalizar();
-                double costeta = L.dot(N);
-                
-                Vetor R = N.mult(2 * costeta).subtrair(L);
-                Vetor S = new Vetor(c.observador).subtrair(cg);
-                R.normalizar();
-                S.normalizar();
-                double cosalfa = R.dot(S);
-                
-                double Ka = 1, Kd = 1, Ks = 1;
-                int n_exp = 1;
-                double fatt = min(1, 1 / L.tamanho());
-                
-                double ambiente = Ka;
-                double difusa = (costeta > 0 ? Kd * costeta : 0);
-                double especular = (costeta > 0 && cosalfa > 0 ? Ks * Math.pow(cosalfa, n_exp) : 0);
-                
-                double r = c.Ia * ambiente + fatt * c.Il * (difusa + especular);
-                float red = (float)r / 3;
-                
-                zBuffer(g, f, new Color(red, 0, 0));
+                zBuffer(g, f, calcularCor(p, cg, N));
             }
         }
         
         for(int i = 0; i < getHeight(); i++) {
             for(int j = 0; j < getWidth(); j++) {
-                g.setColor(cores[i][j]);
+                
+                g.setColor(mediaCor(cores[2*i][2*j],
+                                    cores[2*i][2*j+1],
+                                    cores[2*i+1][2*j],
+                                    cores[2*i+1][2*j+1]));
                 drawPixel(g, i, j);
             }
         }
+    }
+    
+    Color mediaCor(Color a, Color b, Color c, Color d) {
+        return new Color((a.getRed() + b.getRed() + c.getRed() + d.getRed()) / 4,
+                         (a.getGreen()+ b.getGreen() + c.getGreen() + d.getGreen()) / 4,
+                         (a.getBlue()+ b.getBlue() + c.getBlue() + d.getBlue()) / 4);
     }
     
     /*
@@ -208,9 +236,14 @@ public class PainelVisualizacao extends JPanel {
         if(todosYIguais(pontos)) return;
         
         for(Ponto p : f.vert) {
-            p.x += getHeight()/2;
-            p.y += getWidth()/2;
+            p.x = 2 * p.x + getHeight();
+            p.y = 2 * p.y + getWidth();
         }
+        
+        /*System.out.println("z buffer face: ");
+        for(Ponto p : f.vert) {
+            System.out.println(p);
+        }*/
         
         int min = 0, max = 0;
         for(int i = 0; i < pontos.size(); i++) {
@@ -230,20 +263,24 @@ public class PainelVisualizacao extends JPanel {
 
         for(int y = (int)Math.floor(pontos.get(max).y); y >= (int)Math.ceil(pontos.get(min).y); y--) {
 
-            if(y <= pontos.get(prox).y || a == -1) {
-                a = prox;
-                prox = proxDiferenteY(a, 1, pontos);
-                delta_xa = (pontos.get(prox).x - pontos.get(a).x) / (pontos.get(a).y - pontos.get(prox).y);
-                xa = pontos.get(a).x + delta_xa * (pontos.get(a).y - (int)Math.floor(pontos.get(a).y));
-            }
-            if(y <= pontos.get(prev).y || b == -1) {
-                b = prev;
-                prev = proxDiferenteY(b, -1, pontos);
-                delta_xb = (pontos.get(prev).x - pontos.get(b).x) / (pontos.get(b).y - pontos.get(prev).y);
-                xb = pontos.get(b).x + delta_xb * (pontos.get(b).y - (int)Math.floor(pontos.get(b).y));
+            if(Math.abs(y - pontos.get(min).y) > 1e-10) {
+                while(y <= pontos.get(prox).y || a == -1) {
+                    a = prox;
+                    prox = proxDiferenteY(a, 1, pontos);
+                    delta_xa = (pontos.get(prox).x - pontos.get(a).x) / (pontos.get(a).y - pontos.get(prox).y);
+                    xa = pontos.get(a).x + delta_xa * (pontos.get(a).y - (int)Math.floor(pontos.get(a).y));
+                }
+                while(y <= pontos.get(prev).y || b == -1) {
+                    b = prev;
+                    prev = proxDiferenteY(b, -1, pontos);
+                    delta_xb = (pontos.get(prev).x - pontos.get(b).x) / (pontos.get(b).y - pontos.get(prev).y);
+                    xb = pontos.get(b).x + delta_xb * (pontos.get(b).y - (int)Math.floor(pontos.get(b).y));
+                }
             }
             
             double z = (-pd - pa * xa - pb * y) / pc + delta_z * (Math.ceil(xa) - xa);
+            
+            //System.out.println("y + " + y + ", a " + a + ", xa " + xa + ", b " + b + ", xb " + xb + ", delta xb " + delta_xb);
             
             for(int x = (int)Math.ceil(xa); x <= (int)Math.floor(xb); x++) {
                 if(z < zBuffer[x][y]) {

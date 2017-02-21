@@ -52,7 +52,8 @@ public class Poliedro {
             camadas.add(new Face());
         }
         
-        double complementoAngulo = PI - anguloInterno(numLados);
+        double anguloInterno = (numLados - 2) * PI / numLados;
+        double complementoAngulo = PI - anguloInterno;
         
         Ponto orig[] = new Ponto[NUM_FACES_ALTURA];
         Ponto p0[] = new Ponto[NUM_FACES_ALTURA];
@@ -165,10 +166,6 @@ public class Poliedro {
             }
             camadas.add(f);
         }
-    }
-    
-    private double anguloInterno(int numLados) {
-        return (numLados - 2) * PI / numLados;
     }
     
     private Ponto coordenadasPonto(Ponto p) {
