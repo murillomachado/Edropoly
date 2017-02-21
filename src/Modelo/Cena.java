@@ -26,7 +26,8 @@ public class Cena {
     public int selecionado;
     
     public double Ia, Il;
-    public Ponto origemLuz, observador;
+    public Ponto origemLuz, VRP, P;
+    public Vetor viewUp;
     public Color corFundo;
     
     public Cena() {
@@ -35,8 +36,11 @@ public class Cena {
         
         Ia = Il = 1;
         origemLuz = new Ponto(0, 0, 100);
-        observador = new Ponto(0, 0, 50);
-        corFundo = Color.LIGHT_GRAY;
+        P = new Ponto(0, 0, 0);
+        VRP = new Ponto(0, 0, 50);
+        viewUp = new Vetor(0, 1, 0);
+        
+        corFundo = new Color(230, 230, 230);
     }
     
     public Cena(BufferedReader in) {
@@ -52,7 +56,9 @@ public class Cena {
             Ia = Double.parseDouble(s[c++]);
             Il = Double.parseDouble(s[c++]);
             origemLuz = new Ponto(s[c++]);
-            observador = new Ponto(s[c++]);
+            VRP = new Ponto(s[c++]);
+            P = new Ponto(s[c++]);
+            viewUp = new Vetor(new Ponto(s[c++]));
             corFundo = lerStringSalvar(s[c++]);
             
             int numPoliedros = Integer.parseInt(in.readLine());
@@ -74,7 +80,9 @@ public class Cena {
         ret += Ia + " ";
         ret += Il + " ";
         ret += origemLuz.stringSalvar() + " ";
-        ret += observador.stringSalvar() + " ";
+        ret += VRP.stringSalvar() + " ";
+        ret += P.stringSalvar() + " ";
+        ret += viewUp.p.stringSalvar() + " ";
         ret += stringSalvar(corFundo) + "\n";
         
         ret += poliedros.size() + "\n";
@@ -95,7 +103,7 @@ public class Cena {
     }
     
     public Poliedro getSelecionado() {
-        if(selecionado == -1) {
+        if(selecionado < 0) {
             return null;
         }
         return poliedros.get(selecionado);

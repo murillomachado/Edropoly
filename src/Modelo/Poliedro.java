@@ -10,11 +10,9 @@ import static java.lang.Math.cos;
 import static java.lang.Math.sin;
 import static Modelo.MatrizTransf.TipoTransf.*;
 import static Modelo.MatrizTransf.TipoRot.*;
-import java.awt.Color;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
@@ -35,6 +33,9 @@ public class Poliedro {
     private final ArrayList<Face> faces;
     private final ArrayList<Face> camadas;
     
+    public Ponto KR, KG, KB;   // sim, eu estou reutilizando a classe Ponto pra representar uma tripla de doubles, me julguem
+    public double n_exp;
+    
     private final int NUM_FACES_ALTURA = 10;
     
     public Poliedro(int numLados, double tamLado, double altura) {
@@ -42,7 +43,17 @@ public class Poliedro {
         assert(numLados >= 3 && numLados <= 20) : "Tentando criar Poliedro de " + numLados + " lados";
         assert(altura > 0) : "Tentando criar Poliedro com altura " + altura;
         
+        Random r = new Random();
+        int cor = r.nextInt(3);
+        
+        int cr = (cor == 0 ? 1 : 0), cg = (cor == 1 ? 1 : 0), cb = (cor == 2 ? 1 : 0);
+        
         centroide = new Ponto(0, 0, 0);
+        KR = new Ponto(cr, cr, cr);
+        KG = new Ponto(cg, cg, cg);
+        KB = new Ponto(cb, cb, cb);
+        n_exp = 1;
+        
         vertices = new ArrayList<>();
         arestas = new ArrayList<>();
         faces = new ArrayList<>();
@@ -126,6 +137,10 @@ public class Poliedro {
         String[] s = stringSave.split(" ");
         
         centroide = new Ponto(s[c++]);
+        KR = new Ponto(s[c++]);
+        KG = new Ponto(s[c++]);
+        KB = new Ponto(s[c++]);
+        n_exp = Double.parseDouble(s[c++]);
 
         int numVertices = Integer.parseInt(s[c++]);
         
@@ -174,17 +189,8 @@ public class Poliedro {
                          p.z + centroide.z);
     }
     
-    public Ponto getVerticeAresta(int ind_aresta, int ponto) {
-        
-        Ponto r;
-        
-        if(ponto == 0) {
-            r = arestas.get(ind_aresta).v1;
-        } else {
-            r = arestas.get(ind_aresta).v2;
-        }
-        
-        return coordenadasPonto(r);
+    public Ponto getVertice(int i) {
+        return coordenadasPonto(vertices.get(i));
     }
     
     public Face getFace(int ind) {
@@ -197,8 +203,8 @@ public class Poliedro {
         return f;
     }
     
-    public int numArestas() {
-        return arestas.size();
+    public int numVertices() {
+        return vertices.size();
     }
     
     public int numFaces() {
@@ -215,6 +221,34 @@ public class Poliedro {
         centroide.x += x;
         centroide.y += y;
         centroide.z += z;
+    }
+    
+    public ArrayList<Vetor> getVetoresNormaisMedios() {
+        
+        ArrayList<Vetor> vetores = new ArrayList<>();
+        Map<Ponto, Integer> indVert = new HashMap<>();
+        
+        for(int i = 0; i < vertices.size(); i++) {
+            vetores.add(new Vetor(0, 0, 0));
+            indVert.put(vertices.get(i), i);
+        }
+        
+        for(Face f : faces) {
+            Vetor n = f.normal();
+            n.normalizar();
+            
+            for(Ponto p : f.vert) {
+                int ind = indVert.get(p);
+                Vetor v = vetores.get(ind);
+                vetores.set(ind, v.somar(n));
+            }
+        }
+        
+        for(Vetor v : vetores) {
+            v.normalizar();
+        }
+        
+        return vetores;
     }
     
     public void modificar(TipoModif t, double val) {
@@ -240,6 +274,10 @@ public class Poliedro {
         String ret = "";
         
         ret += centroide.stringSalvar() + " ";
+        ret += KR.stringSalvar() + " ";
+        ret += KG.stringSalvar() + " ";
+        ret += KB.stringSalvar() + " ";
+        ret += n_exp + " ";
         
         Map<Ponto, Integer> pontos = new HashMap<>();
         
@@ -311,6 +349,10 @@ public class Poliedro {
             Vetor A = new Vetor(vert.get(0)).subtrair(new Vetor(vert.get(1)));
             Vetor B = new Vetor(vert.get(2)).subtrair(new Vetor(vert.get(1)));
             return B.cross(A);
+        }
+        
+        public boolean visivel(Vetor N) {
+            return N.dot(normal()) > 0;
         }
         
         public Ponto getCentroGeometrico() {
