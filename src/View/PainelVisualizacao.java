@@ -270,7 +270,7 @@ public class PainelVisualizacao extends JPanel {
                         double pa = Nf.p.x, pb = Nf.p.y, pc = Nf.p.z, pd = - (pa * p0.x + pb * p0.y + pc * p0.z);
                         if(pc < 1e-10) continue;
                         cg.z = (-pd - pa * cg.x - pb * cg.y) / pc;
-                        zBuffer(g, p, f, tipo, calcularCor(p, cg, Nf), null, null);
+                        zBuffer(g, p, f, new zBufferFlatShading(calcularCor(p, cg, Nf)));
                         break;
                         
                     case Gouraud:
@@ -281,7 +281,7 @@ public class PainelVisualizacao extends JPanel {
                             verticeCor.add(corVertices.get(ind));
                         }
                         
-                        zBuffer(g, p, f, tipo, null, verticeCor, null);
+                        zBuffer(g, p, f, new zBufferGouraud(verticeCor));
                         break;
                         
                     case Phong:
@@ -292,7 +292,7 @@ public class PainelVisualizacao extends JPanel {
                             verticesNormal.add(vetoresNormaisMedios.get(ind));
                         }
                         
-                        zBuffer(g, p, f, tipo, null, null, verticesNormal);
+                        zBuffer(g, p, f, new zBufferPhong(verticesNormal, p));
                         break;
                 }
             }
@@ -316,43 +316,13 @@ public class PainelVisualizacao extends JPanel {
                          (a.getBlue()+ b.getBlue() + c.getBlue() + d.getBlue()) / 4);
     }
     
-    private class ColorFloatingPoint {
-        float r, g, b;
-        
-        ColorFloatingPoint(Color c) {
-            r = c.getRed(); g = c.getGreen(); b = c.getBlue();
-        }
-        ColorFloatingPoint(ColorFloatingPoint c) {
-            r = c.r; g = c.g; b = c.b;
-        }
-        ColorFloatingPoint(ColorFloatingPoint c, float f) {
-            r = c.r * f; g = c.g * f; b = c.b * f;
-        }
-        void somar(ColorFloatingPoint c) {
-            r += c.r; g += c.g; b += c.b;
-        }
-        void subtrair(ColorFloatingPoint c) {
-            r -= c.r; g -= c.g; b -= c.b;
-        }
-        void subtrair(Color c) {
-            r -= c.getRed(); g -= c.getGreen(); b -= c.getBlue();
-        }
-        void mult(float f) {
-            r *= f; g *= f; b *= f;
-        }
-        Color getColor() {
-            return new Color(Math.round(r), Math.round(g), Math.round(b));
-        }
-    }
-    
     /*
     * Implementação da interpolação dos pontos em arestas para polígonos quase-convexos. Um polígono quase-
     * convexo é aqui definido como um polígono em que qualquer scanline em y intercepta o polígono no máximo
     * duas vezes. Como neste trabalho todas as faces são polígonos convexos, então também são quase-convexos.
     * Ademais os pontos da face devem estar ordenados em sentido anti-horário.
     */
-    public void zBuffer(Graphics g, Poliedro poli, Face f, TIPO_VISUALIZACAO tipo,
-            Color corFlat, ArrayList<Color> verticesCorGouread, ArrayList<Vetor> verticesNormalPhong) {
+    public void zBuffer(Graphics g, Poliedro poli, Face f, zBufferTipoVisualizador visualizador) {
         
         ArrayList<Ponto> pontos = f.vert;
         if(todosYIguais(pontos)) return;
@@ -384,12 +354,6 @@ public class PainelVisualizacao extends JPanel {
         int a = -1, b = -1;
         
         double xa = 0, xb = 0, za = 0, zb = 0, delta_xa = 0, delta_xb = 0, delta_za = 0, delta_zb = 0;
-        
-        // Gouraud
-        ColorFloatingPoint c = null, ca = null, cb = null, delta_c = null, delta_ca = null, delta_cb = null;
-        
-        // Phong
-        Vetor v = null, va = null, vb = null, delta_v = null, delta_va = null, delta_vb = null;
 
         for(int y = (int)Math.floor(pontos.get(max).y); y >= (int)Math.ceil(pontos.get(min).y); y--) {
 
@@ -402,20 +366,7 @@ public class PainelVisualizacao extends JPanel {
                     xa = pontos.get(a).x + delta_xa * (pontos.get(a).y - (int)Math.floor(pontos.get(a).y));
                     za = pontos.get(a).z + delta_za * (pontos.get(a).y - (int)Math.floor(pontos.get(a).y));
                     
-                    if(tipo == TIPO_VISUALIZACAO.Gouraud) {
-                        delta_ca = new ColorFloatingPoint(verticesCorGouread.get(prox));
-                        delta_ca.subtrair(verticesCorGouread.get(a));
-                        delta_ca.mult((float)(1 / (pontos.get(a).y - pontos.get(prox).y)));
-                        
-                        ca = new ColorFloatingPoint(verticesCorGouread.get(a));
-                        ca.somar(new ColorFloatingPoint(delta_ca, (float)(pontos.get(a).y - (int)Math.floor(pontos.get(a).y))));
-                    }
-                    
-                    if(tipo == TIPO_VISUALIZACAO.Phong) {
-                        delta_va = verticesNormalPhong.get(prox).subtrair(verticesNormalPhong.get(a));
-                        delta_va = delta_va.mult(1 / (pontos.get(a).y - pontos.get(prox).y));
-                        va = verticesNormalPhong.get(a).somar(delta_va.mult((pontos.get(a).y - (int)Math.floor(pontos.get(a).y))));
-                    }
+                    visualizador.updateArestaA(pontos, a, prox);
                 }
                 while(y <= pontos.get(prev).y || b == -1) {
                     b = prev;
@@ -425,39 +376,14 @@ public class PainelVisualizacao extends JPanel {
                     xb = pontos.get(b).x + delta_xb * (pontos.get(b).y - (int)Math.floor(pontos.get(b).y));
                     zb = pontos.get(b).z + delta_zb * (pontos.get(b).y - (int)Math.floor(pontos.get(b).y));
                     
-                    if(tipo == TIPO_VISUALIZACAO.Gouraud) {
-                        delta_cb = new ColorFloatingPoint(verticesCorGouread.get(prev));
-                        delta_cb.subtrair(verticesCorGouread.get(b));
-                        delta_cb.mult((float)(1 / (pontos.get(b).y - pontos.get(prev).y)));
-                        
-                        cb = new ColorFloatingPoint(verticesCorGouread.get(b));
-                        cb.somar(new ColorFloatingPoint(delta_cb, (float)(pontos.get(b).y - (int)Math.floor(pontos.get(b).y))));
-                    }
-                    
-                    if(tipo == TIPO_VISUALIZACAO.Phong) {
-                        delta_vb = verticesNormalPhong.get(prev).subtrair(verticesNormalPhong.get(b));
-                        delta_vb = delta_vb.mult(1 / (pontos.get(b).y - pontos.get(prev).y));
-                        vb = verticesNormalPhong.get(b).somar(delta_vb.mult((pontos.get(b).y - (int)Math.floor(pontos.get(b).y))));
-                    }
+                    visualizador.updateArestaB(pontos, b, prev);
                 }
             }
             
             double delta_z = (zb - za) / (xb - xa);
             double z = za + delta_z * (Math.ceil(xa) - xa);
             
-            if(tipo == TIPO_VISUALIZACAO.Gouraud) {
-                delta_c = new ColorFloatingPoint(cb);
-                delta_c.subtrair(ca);
-                delta_c.mult((float)(1 / (xb - xa)));
-                
-                c = new ColorFloatingPoint(ca);
-                c.somar(new ColorFloatingPoint(delta_c, (float)(Math.ceil(xa) - xa)));
-            }
-            
-            if(tipo == TIPO_VISUALIZACAO.Phong) {
-                delta_v = vb.subtrair(va).mult(1 / (xb - xa));
-                v = va.somar(delta_v.mult((Math.ceil(xa) - xa)));
-            }
+            visualizador.calcularPrimeiroX(xa, xb);
             
             //System.out.println("y + " + y + ", a " + a + ", xa " + xa + ", b " + b + ", xb " + xb + ", delta xb " + delta_xb);
             
@@ -466,25 +392,12 @@ public class PainelVisualizacao extends JPanel {
                 if(x >= 0 && y >= 0 && x < zBuffer.length && y < zBuffer[0].length) {
                     if(z < zBuffer[x][y]) {
                         zBuffer[x][y] = z;
-
-                        if(tipo == TIPO_VISUALIZACAO.FlatShading) {
-                            cores[x][y] = corFlat;
-                        } else if(tipo == TIPO_VISUALIZACAO.Gouraud) {
-                            cores[x][y] = c.getColor();
-                        } else if(tipo == TIPO_VISUALIZACAO.Phong) {
-                            cores[x][y] = calcularCor(poli, new Ponto((x - getHeight()) / 2, (y - getWidth()) / 2, z), v);
-                        }
+                        cores[x][y] = visualizador.getColor(new Ponto((x - getHeight()) / 2, (y - getWidth()) / 2, z));
                     }
                 }
                 
                 z += delta_z;
-                
-                if(tipo == TIPO_VISUALIZACAO.Gouraud) {
-                    c.somar(delta_c);
-                }
-                if(tipo == TIPO_VISUALIZACAO.Phong) {
-                    v = v.somar(delta_v);
-                }
+                visualizador.updateX();
             }
 
             xa += delta_xa;
@@ -493,14 +406,7 @@ public class PainelVisualizacao extends JPanel {
             za += delta_za;
             zb += delta_zb;
             
-            if(tipo == TIPO_VISUALIZACAO.Gouraud) {
-                ca.somar(delta_ca);
-                cb.somar(delta_cb);
-            }
-            if(tipo == TIPO_VISUALIZACAO.Phong) {
-                va = va.somar(delta_va);
-                vb = vb.somar(delta_vb);
-            }
+            visualizador.updateY();
         }
     }
     
@@ -520,5 +426,175 @@ public class PainelVisualizacao extends JPanel {
                 return false;
         }
         return true;
+    }
+    
+    private interface zBufferTipoVisualizador {
+        public void updateArestaA(ArrayList<Ponto> pontos, int a, int prox);
+        public void updateArestaB(ArrayList<Ponto> pontos, int b, int prev);
+        public void calcularPrimeiroX(double xa, double xb);
+        public Color getColor(Ponto p);
+        public void updateX();
+        public void updateY();
+    }
+    
+    private class zBufferFlatShading implements zBufferTipoVisualizador {
+
+        Color corFlat;
+        
+        zBufferFlatShading(Color corFlat) {
+            this.corFlat = corFlat;
+        }
+
+        @Override
+        public void updateArestaA(ArrayList<Ponto> pontos, int a, int prox) {}
+        @Override
+        public void updateArestaB(ArrayList<Ponto> pontos, int b, int prev) {}
+        @Override
+        public void calcularPrimeiroX(double xa, double xb) {}
+        @Override
+        public Color getColor(Ponto p) {
+            return corFlat;
+        }
+        @Override
+        public void updateX() {}
+        @Override
+        public void updateY() {}
+        
+    }
+    
+    private class zBufferGouraud implements zBufferTipoVisualizador {
+
+        ArrayList<Color> verticesCor;
+        ColorFloatingPoint c, ca, cb, delta_c, delta_ca, delta_cb;
+        
+        zBufferGouraud(ArrayList<Color> verticesCor) {
+            this.verticesCor = verticesCor;
+            c = ca = cb = delta_c = delta_ca = delta_cb = null;
+        }
+        
+        @Override
+        public void updateArestaA(ArrayList<Ponto> pontos, int a, int prox) {
+            delta_ca = new ColorFloatingPoint(verticesCor.get(prox));
+            delta_ca.subtrair(verticesCor.get(a));
+            delta_ca.mult((float)(1 / (pontos.get(a).y - pontos.get(prox).y)));
+
+            ca = new ColorFloatingPoint(verticesCor.get(a));
+            ca.somar(new ColorFloatingPoint(delta_ca, (float)(pontos.get(a).y - (int)Math.floor(pontos.get(a).y))));
+        }
+        @Override
+        public void updateArestaB(ArrayList<Ponto> pontos, int b, int prev) {
+            delta_cb = new ColorFloatingPoint(verticesCor.get(prev));
+            delta_cb.subtrair(verticesCor.get(b));
+            delta_cb.mult((float)(1 / (pontos.get(b).y - pontos.get(prev).y)));
+
+            cb = new ColorFloatingPoint(verticesCor.get(b));
+            cb.somar(new ColorFloatingPoint(delta_cb, (float)(pontos.get(b).y - (int)Math.floor(pontos.get(b).y))));
+        }
+
+        @Override
+        public void calcularPrimeiroX(double xa, double xb) {
+            delta_c = new ColorFloatingPoint(cb);
+            delta_c.subtrair(ca);
+            delta_c.mult((float)(1 / (xb - xa)));
+
+            c = new ColorFloatingPoint(ca);
+            c.somar(new ColorFloatingPoint(delta_c, (float)(Math.ceil(xa) - xa)));
+        }
+
+        @Override
+        public Color getColor(Ponto p) {
+            return c.getColor();
+        }
+
+        @Override
+        public void updateX() {
+            c.somar(delta_c);
+        }
+
+        @Override
+        public void updateY() {
+            ca.somar(delta_ca);
+            cb.somar(delta_cb);
+        }
+        
+        private class ColorFloatingPoint {
+            float r, g, b;
+
+            ColorFloatingPoint(Color c) {
+                r = c.getRed(); g = c.getGreen(); b = c.getBlue();
+            }
+            ColorFloatingPoint(ColorFloatingPoint c) {
+                r = c.r; g = c.g; b = c.b;
+            }
+            ColorFloatingPoint(ColorFloatingPoint c, float f) {
+                r = c.r * f; g = c.g * f; b = c.b * f;
+            }
+            void somar(ColorFloatingPoint c) {
+                r += c.r; g += c.g; b += c.b;
+            }
+            void subtrair(ColorFloatingPoint c) {
+                r -= c.r; g -= c.g; b -= c.b;
+            }
+            void subtrair(Color c) {
+                r -= c.getRed(); g -= c.getGreen(); b -= c.getBlue();
+            }
+            void mult(float f) {
+                r *= f; g *= f; b *= f;
+            }
+            Color getColor() {
+                return new Color(Math.round(r), Math.round(g), Math.round(b));
+            }
+        }
+        
+    }
+    
+    private class zBufferPhong implements zBufferTipoVisualizador {
+
+        ArrayList<Vetor> verticesNormal;
+        Poliedro poli;
+        Vetor v, va, vb, delta_v, delta_va, delta_vb;
+        
+        zBufferPhong(ArrayList<Vetor> verticesNormal, Poliedro poli) {
+            this.verticesNormal = verticesNormal;
+            this.poli = poli;
+            v = va = vb = delta_v = delta_va = delta_vb = null;
+        }
+        
+        @Override
+        public void updateArestaA(ArrayList<Ponto> pontos, int a, int prox) {
+            delta_va = verticesNormal.get(prox).subtrair(verticesNormal.get(a));
+            delta_va = delta_va.mult(1 / (pontos.get(a).y - pontos.get(prox).y));
+            va = verticesNormal.get(a).somar(delta_va.mult((pontos.get(a).y - (int)Math.floor(pontos.get(a).y))));
+        }
+
+        @Override
+        public void updateArestaB(ArrayList<Ponto> pontos, int b, int prev) {
+            delta_vb = verticesNormal.get(prev).subtrair(verticesNormal.get(b));
+            delta_vb = delta_vb.mult(1 / (pontos.get(b).y - pontos.get(prev).y));
+            vb = verticesNormal.get(b).somar(delta_vb.mult((pontos.get(b).y - (int)Math.floor(pontos.get(b).y))));
+        }
+
+        @Override
+        public void calcularPrimeiroX(double xa, double xb) {
+            delta_v = vb.subtrair(va).mult(1 / (xb - xa));
+            v = va.somar(delta_v.mult((Math.ceil(xa) - xa)));
+        }
+
+        @Override
+        public Color getColor(Ponto p) {
+            return calcularCor(poli, p, v);
+        }
+
+        @Override
+        public void updateX() {
+            v = v.somar(delta_v);
+        }
+
+        @Override
+        public void updateY() {
+            va = va.somar(delta_va);
+            vb = vb.somar(delta_vb);
+        }
+        
     }
 }
